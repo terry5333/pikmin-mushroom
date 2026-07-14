@@ -1,0 +1,601 @@
+```html
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🍄 蘑菇車隊分配器</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap');
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background-color: #FFF8F0;
+        }
+        /* 自定義卷軸 */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+    </style>
+</head>
+<body class="text-gray-800 antialiased min-h-screen py-8 px-4">
+
+    <div class="max-w-2xl mx-auto space-y-6">
+        
+        <!-- 標題 -->
+        <div class="text-center space-y-2">
+            <h1 class="text-3xl font-bold text-orange-600 flex items-center justify-center gap-2">
+                <span>🍄</span> 蘑菇車隊分配器
+            </h1>
+            <p class="text-sm text-gray-500">輕鬆分配找菇人與車友，一鍵產出派車單圖片</p>
+        </div>
+
+        <!-- 步驟 1：新增人員 -->
+        <div id="step1-container" class="bg-white p-6 rounded-2xl shadow-sm border border-orange-100">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-bold text-gray-700 flex items-center gap-2">
+                    <span class="bg-orange-100 text-orange-600 w-6 h-6 rounded-full inline-flex items-center justify-center text-sm">1</span>
+                    建立人員名單
+                </h2>
+                <button onclick="clearPlayers()" class="text-sm text-red-500 hover:text-red-700 flex items-center gap-1 font-medium transition-colors">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
+                    </svg>
+                    清空名單
+                </button>
+            </div>
+            
+            <div class="flex gap-2 mb-4">
+                <input type="text" id="new-player-input" placeholder="輸入玩家名稱 (按 Enter 新增)" class="flex-1 border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-transparent">
+                <button onclick="addPlayer()" class="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg font-medium transition-colors shadow-sm">新增</button>
+            </div>
+            
+            <div id="players-list" class="flex flex-wrap gap-2 mb-6 min-h-[40px] p-2 bg-gray-50 rounded-lg border border-gray-100">
+                <!-- 玩家標籤會長在這裡 -->
+                <span class="text-gray-400 text-sm flex items-center ml-2">目前尚無人員，請在上方輸入</span>
+            </div>
+
+            <button onclick="startAllocation()" class="w-full bg-gray-800 hover:bg-gray-900 text-white py-3 rounded-lg font-bold transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed" id="btn-start" disabled>
+                下一步：開始分配蘑菇
+            </button>
+        </div>
+
+        <!-- 步驟 2：分配蘑菇 -->
+        <div id="step2-container" class="bg-white p-6 rounded-2xl shadow-sm border border-orange-100 hidden">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-bold text-gray-700 flex items-center gap-2">
+                    <span class="bg-orange-100 text-orange-600 w-6 h-6 rounded-full inline-flex items-center justify-center text-sm">2</span>
+                    設定第 <span id="current-mushroom-num" class="text-orange-600 mx-1">1</span> 顆蘑菇
+                </h2>
+                <span class="text-sm font-medium text-gray-400">最多 5 顆，已設 <span id="mushroom-count" class="text-orange-500">0</span> 顆</span>
+            </div>
+
+            <div class="space-y-5 bg-orange-50/50 p-4 rounded-xl border border-orange-100/50">
+                
+                <!-- 選擇蘑菇類型 -->
+                <div class="bg-white p-3 rounded-lg border border-orange-100">
+                    <label class="block text-sm font-bold text-gray-700 mb-2">🍄 選擇蘑菇種類</label>
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <select id="size-select" onchange="updateMushroomTypeUI()" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400">
+                            <option value="一般菇">一般菇</option>
+                            <option value="小菇">小菇</option>
+                            <option value="大菇">大菇</option>
+                            <option value="巨大菇">巨大菇</option>
+                        </select>
+                        <div id="category-wrapper">
+                            <select id="category-select" onchange="updateMushroomTypeUI()" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400">
+                            </select>
+                        </div>
+                        <div id="detail-wrapper">
+                            <select id="detail-select" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400">
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 找菇人 -->
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-2">🔍 選擇找菇人</label>
+                    <select id="finder-select" onchange="updateInviteesUI()" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-orange-400">
+                    </select>
+                </div>
+
+                <!-- 帳號類型 -->
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-2">🎮 找菇人使用帳號</label>
+                    <div class="flex gap-4">
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="radio" name="account-type" value="main" checked onchange="toggleAltOptions()" class="w-4 h-4 text-orange-500 focus:ring-orange-400">
+                            <span>大帳 (本尊)</span>
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="radio" name="account-type" value="alt" onchange="toggleAltOptions()" class="w-4 h-4 text-orange-500 focus:ring-orange-400">
+                            <span>小帳 (分身)</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- 小帳換大帳選項 (隱藏/顯示) -->
+                <div id="alt-swap-container" class="hidden bg-yellow-50 border border-yellow-200 p-3 rounded-lg">
+                    <label class="flex items-center gap-2 cursor-pointer text-yellow-800 text-sm font-medium">
+                        <input type="checkbox" id="alt-swap-checkbox" class="w-4 h-4 text-yellow-600 rounded focus:ring-yellow-500">
+                        ⚠️ 找到菇後，需要「小帳退出，大帳進入」嗎？
+                    </label>
+                </div>
+
+                <!-- 邀請對象 -->
+                <div>
+                    <div class="flex justify-between items-end mb-2">
+                        <label class="block text-sm font-bold text-gray-700">🤝 選擇要邀誰 (需選 4 人)</label>
+                        <span id="invite-count-text" class="text-xs font-bold text-gray-500">已選: 0/4</span>
+                    </div>
+                    <div id="invitees-list" class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    </div>
+                </div>
+
+                <button onclick="saveMushroom()" class="w-full bg-orange-500 hover:bg-orange-600 text-white py-3 rounded-lg font-bold transition-colors shadow-sm">
+                    確認新增這顆蘑菇
+                </button>
+            </div>
+        </div>
+
+        <!-- 步驟 3：結果與截圖區 -->
+        <div id="step3-container" class="hidden space-y-4">
+            <!-- 實際要被截圖的區域 -->
+            <div id="export-board" class="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 relative overflow-hidden">
+                <!-- 裝飾背景 -->
+                <div class="absolute top-0 right-0 -mr-4 -mt-4 w-24 h-24 bg-orange-50 rounded-full z-0"></div>
+                
+                <div class="relative z-10">
+                    <div class="text-center mb-6 border-b-2 border-orange-100 pb-4">
+                        <h2 class="text-2xl font-black text-gray-800 mb-1">🍄 蘑菇派車單</h2>
+                        <p id="board-date" class="text-sm font-bold text-orange-500"></p>
+                    </div>
+                    
+                    <div id="board-content" class="space-y-3">
+                        <!-- 分配結果卡片 -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- 操作按鈕 -->
+            <div class="flex gap-3">
+                <button id="download-btn" onclick="generatePNG()" class="flex-1 bg-green-500 hover:bg-green-600 text-white py-3 rounded-lg font-bold transition-colors shadow-sm flex items-center justify-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd" />
+                    </svg>
+                    產生圖片
+                </button>
+                <button onclick="resetAll()" class="px-4 py-3 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg font-bold transition-colors">
+                    重新分配
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 圖片預覽彈窗 (解決手機/部分瀏覽器無法直接下載的問題) -->
+    <div id="preview-modal" class="fixed inset-0 z-50 hidden bg-black/80 flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl max-w-lg w-full flex flex-col max-h-[90vh]">
+            <div class="p-4 border-b flex justify-between items-center bg-orange-50 rounded-t-xl">
+                <h3 class="font-bold text-gray-800 flex items-center gap-2">🍄 圖片已生成</h3>
+                <button onclick="closeModal()" class="text-gray-500 hover:text-gray-800 text-2xl font-bold leading-none">&times;</button>
+            </div>
+            
+            <div class="p-4 overflow-auto flex-1 flex justify-center bg-gray-100">
+                <!-- 這裡會放入生成的圖片 -->
+                <img id="preview-img" src="" alt="蘑菇分配表" class="max-w-full h-auto shadow-sm rounded border border-gray-200">
+            </div>
+            
+            <div class="p-4 border-t bg-white rounded-b-xl space-y-3">
+                <p class="text-sm text-gray-600 text-center">
+                    如果沒有自動下載，請<strong class="text-orange-600">長按上方圖片 (手機)</strong> 或 <strong class="text-orange-600">點擊右鍵 (電腦)</strong>，選擇「儲存圖片」。
+                </p>
+                <button onclick="closeModal()" class="w-full bg-gray-800 hover:bg-gray-900 text-white py-2 rounded-lg font-bold transition-colors">
+                    關閉視窗
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let players = [];
+        let mushrooms = [];
+        const MAX_MUSHROOMS = 5;
+        const STORAGE_KEY = 'mushroom_players_data'; 
+
+        // --- 載入儲存的資料 ---
+        window.onload = function() {
+            loadPlayersFromStorage();
+            updateMushroomTypeUI();
+        };
+
+        function loadPlayersFromStorage() {
+            const savedPlayers = localStorage.getItem(STORAGE_KEY);
+            if (savedPlayers) {
+                try {
+                    players = JSON.parse(savedPlayers);
+                    renderPlayersList();
+                } catch (e) {
+                    console.error("讀取儲存資料失敗", e);
+                }
+            }
+        }
+
+        function savePlayersToStorage() {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(players));
+        }
+
+        function clearPlayers() {
+            if(confirm('確定要清空目前儲存的所有人員名單嗎？')) {
+                players = [];
+                savePlayersToStorage();
+                renderPlayersList();
+            }
+        }
+
+        // --- 步驟 1：人員名單管理 ---
+        document.getElementById('new-player-input').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') addPlayer();
+        });
+
+        function addPlayer() {
+            const input = document.getElementById('new-player-input');
+            const name = input.value.trim();
+            
+            if (!name) return;
+            if (players.includes(name)) {
+                alert('這個人已經在名單裡囉！');
+                return;
+            }
+
+            players.push(name);
+            input.value = '';
+            
+            savePlayersToStorage();
+            renderPlayersList();
+        }
+
+        function removePlayer(name) {
+            players = players.filter(p => p !== name);
+            savePlayersToStorage();
+            renderPlayersList();
+        }
+
+        function renderPlayersList() {
+            const container = document.getElementById('players-list');
+            const btnStart = document.getElementById('btn-start');
+            
+            if (players.length === 0) {
+                container.innerHTML = '<span class="text-gray-400 text-sm flex items-center ml-2">目前尚無人員，請在上方輸入</span>';
+                btnStart.disabled = true;
+                return;
+            }
+
+            btnStart.disabled = players.length < 5;
+            if(players.length < 5) {
+                btnStart.innerText = `下一步：開始分配蘑菇 (還差 ${5 - players.length} 人)`;
+            } else {
+                btnStart.innerText = '下一步：開始分配蘑菇';
+            }
+
+            container.innerHTML = players.map(name => `
+                <div class="bg-white border border-gray-200 text-gray-700 px-3 py-1.5 rounded-full text-sm font-medium flex items-center gap-2 shadow-sm">
+                    ${name}
+                    <button onclick="removePlayer('${name}')" class="text-gray-400 hover:text-red-500 focus:outline-none">
+                        ×
+                    </button>
+                </div>
+            `).join('');
+        }
+
+        // --- 蘑菇類型動態選單 ---
+        function updateMushroomTypeUI() {
+            const size = document.getElementById('size-select').value;
+            const categoryWrapper = document.getElementById('category-wrapper');
+            const categorySelect = document.getElementById('category-select');
+            const detailWrapper = document.getElementById('detail-wrapper');
+            const detailSelect = document.getElementById('detail-select');
+
+            if (size === '巨大菇') {
+                categoryWrapper.classList.add('hidden');
+                detailWrapper.classList.add('hidden');
+                return;
+            } else {
+                categoryWrapper.classList.remove('hidden');
+                
+                let currentCat = categorySelect.value;
+                let catOptions = `
+                    <option value="顏色菇">顏色菇</option>
+                    <option value="元素菇">元素菇</option>
+                `;
+                if (size === '一般菇' || size === '小菇') {
+                    catOptions += `<option value="活動菇">活動菇</option>`;
+                }
+                categorySelect.innerHTML = catOptions;
+
+                if(Array.from(categorySelect.options).some(opt => opt.value === currentCat)) {
+                    categorySelect.value = currentCat;
+                } else {
+                    categorySelect.value = "顏色菇";
+                }
+            }
+
+            const category = categorySelect.value;
+            if (category === '活動菇') {
+                detailWrapper.classList.add('hidden');
+            } else {
+                detailWrapper.classList.remove('hidden');
+                
+                if (category === '顏色菇') {
+                    detailSelect.innerHTML = `
+                        <option value="紅色">紅色</option>
+                        <option value="黃色">黃色</option>
+                        <option value="藍色">藍色</option>
+                        <option value="紫色">紫色</option>
+                        <option value="白色">白色</option>
+                        <option value="粉紅色">粉紅色</option>
+                        <option value="灰色">灰色</option>
+                        <option value="冰藍">冰藍</option>
+                    `;
+                } else if (category === '元素菇') {
+                    detailSelect.innerHTML = `
+                        <option value="電菇">電菇</option>
+                        <option value="火菇">火菇</option>
+                        <option value="水菇">水菇</option>
+                        <option value="水晶菇">水晶菇</option>
+                    `;
+                }
+            }
+        }
+
+        function getFullMushroomName() {
+            const size = document.getElementById('size-select').value;
+            if (size === '巨大菇') return '巨大菇';
+
+            const category = document.getElementById('category-select').value;
+            const sizePrefix = size.replace('菇', ''); 
+
+            if (category === '活動菇') return sizePrefix + '活動菇';
+
+            const detail = document.getElementById('detail-select').value;
+            if (category === '顏色菇') {
+                return sizePrefix + detail + '菇';
+            } else if (category === '元素菇') {
+                return sizePrefix + detail; 
+            }
+        }
+
+        // --- 步驟 2：蘑菇分配邏輯 ---
+        function startAllocation() {
+            document.getElementById('step1-container').classList.add('hidden');
+            document.getElementById('step2-container').classList.remove('hidden');
+            document.getElementById('step3-container').classList.remove('hidden');
+            
+            const today = new Date();
+            const dateString = `${today.getFullYear()}/${String(today.getMonth()+1).padStart(2, '0')}/${String(today.getDate()).padStart(2, '0')}`;
+            document.getElementById('board-date').innerText = dateString;
+
+            prepareMushroomForm();
+        }
+
+        function prepareMushroomForm() {
+            if (mushrooms.length >= MAX_MUSHROOMS) return;
+
+            document.getElementById('current-mushroom-num').innerText = mushrooms.length + 1;
+            document.getElementById('mushroom-count').innerText = mushrooms.length;
+
+            const finderSelect = document.getElementById('finder-select');
+            finderSelect.innerHTML = players.map(p => `<option value="${p}">${p}</option>`).join('');
+            
+            document.getElementById('size-select').value = '一般菇';
+            updateMushroomTypeUI();
+            
+            document.querySelector('input[name="account-type"][value="main"]').checked = true;
+            toggleAltOptions();
+            updateInviteesUI();
+        }
+
+        function toggleAltOptions() {
+            const isAlt = document.querySelector('input[name="account-type"]:checked').value === 'alt';
+            const swapContainer = document.getElementById('alt-swap-container');
+            const swapCheckbox = document.getElementById('alt-swap-checkbox');
+            
+            if (isAlt) {
+                swapContainer.classList.remove('hidden');
+            } else {
+                swapContainer.classList.add('hidden');
+                swapCheckbox.checked = false;
+            }
+        }
+
+        function updateInviteesUI() {
+            const finder = document.getElementById('finder-select').value;
+            const container = document.getElementById('invitees-list');
+            
+            container.innerHTML = players
+                .filter(p => p !== finder)
+                .map(p => `
+                    <label class="flex items-center gap-2 p-2 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 bg-white">
+                        <input type="checkbox" value="${p}" onchange="checkInviteLimit()" class="invite-checkbox w-4 h-4 text-orange-500 rounded focus:ring-orange-400">
+                        <span class="text-sm font-medium text-gray-700 truncate">${p}</span>
+                    </label>
+                `).join('');
+                
+            checkInviteLimit();
+        }
+
+        function checkInviteLimit() {
+            const checkboxes = document.querySelectorAll('.invite-checkbox');
+            const checkedCount = document.querySelectorAll('.invite-checkbox:checked').length;
+            document.getElementById('invite-count-text').innerText = `已選: ${checkedCount}/4`;
+
+            checkboxes.forEach(cb => {
+                if (!cb.checked && checkedCount >= 4) {
+                    cb.disabled = true;
+                    cb.parentElement.classList.add('opacity-50', 'bg-gray-100');
+                } else {
+                    cb.disabled = false;
+                    cb.parentElement.classList.remove('opacity-50', 'bg-gray-100');
+                }
+            });
+        }
+
+        function saveMushroom() {
+            const finder = document.getElementById('finder-select').value;
+            const isAlt = document.querySelector('input[name="account-type"]:checked').value === 'alt';
+            const swapNeeded = document.getElementById('alt-swap-checkbox').checked;
+            const mushroomFullName = getFullMushroomName();
+            
+            const selectedInvitees = Array.from(document.querySelectorAll('.invite-checkbox:checked')).map(cb => cb.value);
+
+            if (selectedInvitees.length !== 4) {
+                alert('請選擇剛好 4 位要邀請的人員！(1位找菇 + 4位邀請 = 5人滿車)');
+                return;
+            }
+
+            mushrooms.push({
+                num: mushrooms.length + 1,
+                type: mushroomFullName,
+                finder: finder,
+                isAlt: isAlt,
+                swapNeeded: isAlt && swapNeeded,
+                invitees: selectedInvitees
+            });
+
+            renderBoard();
+
+            if (mushrooms.length >= MAX_MUSHROOMS) {
+                document.getElementById('step2-container').classList.add('hidden');
+                document.getElementById('mushroom-count').innerText = mushrooms.length;
+            } else {
+                prepareMushroomForm(); 
+            }
+        }
+
+        // --- 步驟 3：結果產生與截圖 ---
+
+        function renderBoard() {
+            const board = document.getElementById('board-content');
+            
+            if(mushrooms.length === 0) {
+                board.innerHTML = '<div class="text-center text-gray-400 py-4">尚未分配任何蘑菇</div>';
+                return;
+            }
+
+            board.innerHTML = mushrooms.map(m => `
+                <div class="bg-gray-50 border border-gray-200 rounded-xl p-4 relative overflow-hidden">
+                    <div class="absolute top-0 left-0 w-2 h-full ${m.isAlt ? (m.swapNeeded ? 'bg-yellow-400' : 'bg-blue-400') : 'bg-orange-500'}"></div>
+                    
+                    <div class="ml-3 flex flex-col md:flex-row md:items-center justify-between gap-2">
+                        <div class="flex-1">
+                            <div class="flex flex-wrap items-center gap-2 mb-1">
+                                <span class="bg-gray-800 text-white text-xs font-bold px-2 py-1 rounded">車 ${m.num}</span>
+                                <span class="bg-pink-100 text-pink-700 text-sm font-bold px-2 py-0.5 rounded border border-pink-200">
+                                    ${m.type}
+                                </span>
+                                <span class="font-bold text-gray-800 text-lg">${m.finder}</span>
+                                <span class="text-xs font-bold px-2 py-0.5 rounded ${m.isAlt ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700'}">
+                                    ${m.isAlt ? '小帳' : '大帳'}找菇
+                                </span>
+                            </div>
+                            
+                            ${m.swapNeeded ? 
+                                `<div class="inline-flex items-center gap-1 text-xs font-bold bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded mt-1">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                                      <path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd" />
+                                    </svg>
+                                    注意：小帳需退，大帳進入
+                                </div>` : ''
+                            }
+                        </div>
+                        
+                        <div class="flex-1 bg-white border border-gray-100 rounded-lg p-2 text-sm text-gray-600">
+                            <div class="text-xs font-bold text-gray-400 mb-1 border-b border-gray-50 pb-1">邀請車友 (4人)</div>
+                            <div class="font-medium">${m.invitees.join('、')}</div>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // --- 增強版：圖片下載與顯示邏輯 ---
+        function generatePNG() {
+            if(mushrooms.length === 0) {
+                alert('還沒有分配任何蘑菇喔！');
+                return;
+            }
+
+            const board = document.getElementById('export-board');
+            const btn = document.getElementById('download-btn');
+            const originalContent = btn.innerHTML;
+            
+            // 按鈕顯示處理中
+            btn.innerHTML = '處理中...';
+            btn.disabled = true;
+            btn.classList.add('opacity-70');
+            
+            html2canvas(board, {
+                scale: 2, 
+                backgroundColor: "#ffffff",
+                useCORS: true,
+                logging: false
+            }).then(canvas => {
+                // 恢復按鈕
+                btn.innerHTML = originalContent;
+                btn.disabled = false;
+                btn.classList.remove('opacity-70');
+
+                const today = new Date();
+                const fileDate = `${today.getFullYear()}${String(today.getMonth()+1).padStart(2, '0')}${String(today.getDate()).padStart(2, '0')}`;
+                const fileName = `蘑菇分配表_${fileDate}.png`;
+                
+                // 1. 將圖片顯示在 Modal 內 (防呆保證可以手動存)
+                const imgData = canvas.toDataURL('image/png');
+                document.getElementById('preview-img').src = imgData;
+                document.getElementById('preview-modal').classList.remove('hidden');
+
+                // 2. 嘗試自動下載 (使用 Blob 方式相容性更好)
+                canvas.toBlob(function(blob) {
+                    if (blob) {
+                        const url = URL.createObjectURL(blob);
+                        const link = document.createElement('a');
+                        link.download = fileName;
+                        link.href = url;
+                        // 需要加到 body 裡再點擊，部分瀏覽器才允許
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                        
+                        // 清除暫存
+                        setTimeout(() => URL.revokeObjectURL(url), 100);
+                    }
+                }, 'image/png');
+
+            }).catch(err => {
+                btn.innerHTML = originalContent;
+                btn.disabled = false;
+                btn.classList.remove('opacity-70');
+                console.error("生成圖片失敗", err);
+                alert("生成圖片失敗，請確保瀏覽器支援。");
+            });
+        }
+
+        function closeModal() {
+            document.getElementById('preview-modal').classList.add('hidden');
+        }
+
+        function resetAll() {
+            if(confirm('確定要清除所有「已分配的蘑菇」並重新開始嗎？\n(你的人員名單會保留)')) {
+                mushrooms = [];
+                document.getElementById('step2-container').classList.remove('hidden');
+                prepareMushroomForm();
+                renderBoard();
+            }
+        }
+    </script>
+</body>
+</html>
+
+
+```
